@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>クリックゲーム</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #222;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+    .click-area {
+      margin: 2rem auto;
+      width: 300px;
+      height: 300px;
+      background: #444;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 24px;
+      user-select: none;
+      transition: background 0.3s;
+    }
+    .click-area:hover {
+      background: #666;
+    }
+    .stats, .shop, .settings, .saveslot {
+      margin: 1rem auto;
+      width: 90%;
+      max-width: 500px;
+      background: #333;
+      padding: 1rem;
+      border-radius: 10px;
+    }
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      margin: 0.5rem 0;
+    }
+    button {
+      padding: 0.5rem 1rem;
+      background: #555;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #777;
+    }
+    input[type="file"] {
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎯 クリックゲーム</h1>
+  <div class="click-area" id="clickArea">クリック！</div>
+  <div class="stats">
+    <p>クリック数: <span id="clickCount">0</span></p>
+    <p>レベル: <span id="level">1</span></p>
+    <p>実績: <span id="achievements">なし</span></p>
+  </div>
+  <div class="shop">
+    <h2>ショップ</h2>
+    <div class="shop-item">
+      <span>自動クリック (+1/秒)</span>
+      <button onclick="buyItem('autoClick')">購入 (10)</button>
+    </div>
+  </div>
+  <div class="settings">
+    <h2>設定</h2>
+    <button onclick="saveGame()">💾 セーブ</button>
+    <button onclick="loadGame()">📥 ロード</button>
+    <button onclick="exportData()">📤 エクスポート</button>
+    <button onclick="importData()">📥 インポート</button>
+    <button onclick="newGame()">🔁 ニューゲーム</button>
+    <button onclick="deleteData()">🗑 データ削除</button>
+    <input type="file" id="fileInput" style="display:none" onchange="handleFileUpload(event)">
+  </div>
+  <div class="saveslot">
+    <h2>スロット選択</h2>
+    <button onclick="selectSlot(1)">スロット1</button>
+    <button onclick="selectSlot(2)">スロット2</button>
+    <button onclick="selectSlot(3)">スロット3</button>
+  </div>
+
+  <script>
+    let data = {
+      click: 0,
+      autoClick: 0,
+      level: 1,
+      achievements: [],
+    };
+    let currentSlot = 1;
+    let clickTimeout = 0;
+
+    function updateUI() {
+      document.getElementById('clickCount').textContent = data.click;
+      document.getElementById('level').textContent = data.level;
+      document.getElementById('achievements').textContent = data.achievements.join(', ') || 'なし';
+    }
+
+    function clickHandler() {
+      data.click++;
+      checkLevel();
+      updateUI();
+    }
+
+    function buyItem(type) {
+      if (type === 'autoClick' && data.click >= 10) {
+        data.click -= 10;
+        data.autoClick++;
+      }
+      updateUI();
+    }
+
+    function autoClicker() {
+      if (data.autoClick) {
+        data.click += data.autoClick;
+        checkLevel();
+        updateUI();
+      }
+    }
+
+    function checkLevel() {
+      let newLevel = Math.floor(data.click / 50) + 1;
+      if (newLevel > data.level) {
+        data.level = newLevel;
+        data.achievements.push(`レベル${newLevel}達成`);
+      }
+    }
+
+    function saveGame() {
+      localStorage.setItem('clicker_slot_' + currentSlot, JSON.stringify(data));
+      alert('セーブしました');
+    }
+
+    function loadGame() {
+      const saved = localStorage.getItem('clicker_slot_' + currentSlot);
+      if (saved) {
+        data = JSON.parse(saved);
+        updateUI();
+        alert('ロードしました');
+      }
+    }
+
+    function exportData() {
+      const json = JSON.stringify(data);
+      const blob = new Blob([json], {type: 'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `clicker_slot${currentSlot}.json`;
+      a.click();
+    }
+
+    function importData() {
+      document.getElementById('fileInput').click();
+    }
+
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (typeof imported.click === 'number') {
+            data = imported;
+            updateUI();
+            alert('インポート成功');
+          } else {
+            throw new Error();
+          }
+        } catch {
+          alert('無効なデータです');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function newGame() {
+      if (confirm('ニューゲームを開始しますか？')) {
+        data = { click: 0, autoClick: 0, level: 1, achievements: [] };
+        updateUI();
+      }
+    }
+
+    function deleteData() {
+      if (confirm('本当に削除しますか？')) {
+        localStorage.removeItem('clicker_slot_' + currentSlot);
+        newGame();
+        alert('データ削除しました');
+      }
+    }
+
+    function selectSlot(n) {
+      currentSlot = n;
+      loadGame();
+    }
+
+    document.getElementById('clickArea').addEventListener('click', clickHandler);
+    setInterval(autoClicker, 1000);
+    updateUI();
+  </script>
+</body>
+</html>
